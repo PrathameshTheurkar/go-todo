@@ -1,63 +1,81 @@
 package middlewares
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"fmt"
+	"net/http"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
+	"github.com/dgrijalva/jwt-go"
 )
 
-var secretKey = "secret-key"
-var jwtKey = []byte(secretKey)
+var JwtKey *ecdsa.PrivateKey
+var JwtPublicKey *ecdsa.PublicKey
 
-// func generateSecretKey() *ecdsa.PrivateKey {
-// 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// 	return key
-// }
-
-// var SecretKey *ecdsa.PrivateKey
-
-// func putSecretKey() {
-// 	SecretKey = generateSecretKey()
-// }
-
-func CreateToken(username string) (string, error) {
-	// secretKey := generateSecretKey()
-	// fmt.Println(secretKey)
-	// SecretKey = secretKey
-
-	token := jwt.NewWithClaims(jwt.SigningMethodES256,
-		jwt.MapClaims{
-			"username": username,
-			"exp":      time.Now().Add(time.Hour * 24).Unix(),
-		})
-
-	tokenString, err := token.SignedString(jwtKey)
+func generateJwtKey() {
+	jwtKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
-		return "", err
+		panic(err)
 	}
 
-	return tokenString, nil
+	JwtKey = jwtKey
+	JwtPublicKey = &jwtKey.PublicKey
 }
 
-func VerifyToken(tokenString string) error {
-	// secretKey := generateSecretKey()
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		// fmt.Println(SecretKey)
-		return jwtKey, nil
-	})
+type Claims struct {
+	Username string `json:"username"`
+	jwt.StandardClaims
+}
+
+func CreateToken(w http.ResponseWriter, username string) (err error) {
+	generateJwtKey()
+	claims := &Claims{
+		Username: username,
+		StandardClaims: jwt.StandardClaims{
+			ExpiresAt: time.Now().Add(time.Hour * 24).Unix(),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodES256, claims)
+	tokenString, err := token.SignedString(JwtKey)
 	if err != nil {
-		// panic(err)
+		panic(err)
 		return err
 	}
 
-	// if !token.Valid {
-	// 	return fmt.Errorf("invalid token")
-	// }
+	http.SetCookie(w,
+		&http.Cookie{
+			Name:    "token",
+			Value:   tokenString,
+			Expires: time.Now().Add(time.Hour * 24),
+		},
+	)
+	return nil
+
+}
+
+func VerifyToken(r *http.Request) error {
+
+	cookie, err := r.Cookie("token")
+	if err != nil {
+		return err
+	}
+	tokenString := cookie.Value
+	claims := &Claims{}
+
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+		return JwtPublicKey, nil
+	})
+	if err != nil {
+		fmt.Println("invalid jwtKey")
+		return err
+	}
+
+	if !token.Valid {
+		return fmt.Errorf("invalid token")
+	}
 	fmt.Println(token)
 
 	return nil

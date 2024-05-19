@@ -2,10 +2,8 @@ package controllers
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/PrathameshTheurkar/go-todoapp/backend/database"
 	"github.com/PrathameshTheurkar/go-todoapp/backend/middlewares"
@@ -29,7 +27,7 @@ func Signup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if count == 0 {
-		tokenString, err := middlewares.CreateToken(user.Username)
+		err := middlewares.CreateToken(w, user.Username)
 		if err != nil {
 			panic(err)
 		}
@@ -39,14 +37,9 @@ func Signup(w http.ResponseWriter, r *http.Request) {
 			panic(err)
 		}
 
-		res, err := json.Marshal(tokenString)
-		if err != nil {
-			panic(err)
-		}
-
 		w.Header().Set("Content-Type", "pkglication/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write(res)
+		w.Write([]byte("User signup successfully"))
 	} else {
 		w.Write([]byte("User already exist"))
 	}
@@ -70,17 +63,11 @@ func Signin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if count != 0 {
-
-		authHeader := r.Header.Get("Authorization")
-		arrHeader := strings.Split(authHeader, " ")
-		tokenString := arrHeader[1]
-		// fmt.Println("token: ", tokenString)
-		err := middlewares.VerifyToken(tokenString)
-
+		err := middlewares.CreateToken(w, user.Username)
 		if err != nil {
 			// w.Write([]byte(""))
-			fmt.Println("from controllers")
 			panic(err)
+			return
 		}
 
 		w.Write([]byte("User successfully login"))
@@ -93,11 +80,18 @@ func Signin(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetTodo(w http.ResponseWriter, r *http.Request) {
+	err := middlewares.VerifyToken(r)
+	if err != nil {
+		w.Write([]byte("Plz Login or Signup first"))
+		return
+		// panic(err)
+	}
+
 	params := mux.Vars(r)
 	id := params["id"]
 
 	var todo = models.Todo{}
-	err := database.Db.Get(&todo, "select * from todo where id = ?", id)
+	err = database.Db.Get(&todo, "select * from todo where id = ?", id)
 
 	if err != nil {
 		panic(err)
@@ -114,6 +108,12 @@ func GetTodo(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetTodos(w http.ResponseWriter, r *http.Request) {
+	err := middlewares.VerifyToken(r)
+	if err != nil {
+		w.Write([]byte("Plz Login or Signup first"))
+		return
+		// panic(err)
+	}
 	rows, err := database.Db.Query("Select * from todo")
 
 	if err != nil {
@@ -148,6 +148,12 @@ func GetTodos(w http.ResponseWriter, r *http.Request) {
 }
 
 func AddTodo(w http.ResponseWriter, r *http.Request) {
+	err := middlewares.VerifyToken(r)
+	if err != nil {
+		w.Write([]byte("Plz Login or Signup first"))
+		return
+		// panic(err)
+	}
 	var x = &models.Todo{}
 
 	if body, err := io.ReadAll(r.Body); err == nil {
@@ -156,7 +162,7 @@ func AddTodo(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	_, err := database.Db.Exec("insert into todo(id, title, description) values(?, ?, ?)", x.Id, x.Title, x.Description)
+	_, err = database.Db.Exec("insert into todo(id, title, description) values(?, ?, ?)", x.Id, x.Title, x.Description)
 	if err != nil {
 		panic(err)
 	}
@@ -167,6 +173,12 @@ func AddTodo(w http.ResponseWriter, r *http.Request) {
 }
 
 func UpdateTodo(w http.ResponseWriter, r *http.Request) {
+	err := middlewares.VerifyToken(r)
+	if err != nil {
+		w.Write([]byte("Plz Login or Signup first"))
+		return
+		// panic(err)
+	}
 	var x = &models.Todo{}
 
 	if body, err := io.ReadAll(r.Body); err == nil {
@@ -178,7 +190,7 @@ func UpdateTodo(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	id := params["id"]
 
-	_, err := database.Db.Exec("update todo set title = ?, description = ? where id = ?", x.Title, x.Description, id)
+	_, err = database.Db.Exec("update todo set title = ?, description = ? where id = ?", x.Title, x.Description, id)
 	if err != nil {
 		panic(err)
 	}
@@ -189,9 +201,15 @@ func UpdateTodo(w http.ResponseWriter, r *http.Request) {
 }
 
 func DeleteTodo(w http.ResponseWriter, r *http.Request) {
+	err := middlewares.VerifyToken(r)
+	if err != nil {
+		w.Write([]byte("Plz Login or Signup first"))
+		return
+		// panic(err)
+	}
 	params := mux.Vars(r)
 	id := params["id"]
-	_, err := database.Db.Exec("Delete from todo where id = ?", id)
+	_, err = database.Db.Exec("Delete from todo where id = ?", id)
 
 	if err != nil {
 		panic(err)
