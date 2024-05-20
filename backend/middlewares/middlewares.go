@@ -25,14 +25,14 @@ func generateJwtKey() {
 }
 
 type Claims struct {
-	Username string `json:"username"`
+	PersonId int64 `json:"personId"`
 	jwt.StandardClaims
 }
 
-func CreateToken(w http.ResponseWriter, username string) (err error) {
+func CreateToken(w http.ResponseWriter, personId int64) (err error) {
 	generateJwtKey()
 	claims := &Claims{
-		Username: username,
+		PersonId: personId,
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: time.Now().Add(time.Hour * 24).Unix(),
 		},
@@ -56,11 +56,11 @@ func CreateToken(w http.ResponseWriter, username string) (err error) {
 
 }
 
-func VerifyToken(r *http.Request) error {
+func VerifyToken(r *http.Request) (int64, error) {
 
 	cookie, err := r.Cookie("token")
 	if err != nil {
-		return err
+		return -1, err
 	}
 	tokenString := cookie.Value
 	claims := &Claims{}
@@ -68,15 +68,21 @@ func VerifyToken(r *http.Request) error {
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
 		return JwtPublicKey, nil
 	})
+
 	if err != nil {
 		fmt.Println("invalid jwtKey")
-		return err
+		return -1, err
 	}
 
 	if !token.Valid {
-		return fmt.Errorf("invalid token")
+		return -1, fmt.Errorf("invalid token")
 	}
-	fmt.Println(token)
 
-	return nil
+	if claims, ok := token.Claims.(*Claims); ok && token.Valid {
+		// log.Printf("%v", claims.PersonId)
+		// fmt.Printf("%v", claims.PersonId)
+		return claims.PersonId, nil
+	}
+
+	return -1, nil
 }
