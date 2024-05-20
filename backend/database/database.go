@@ -1,15 +1,24 @@
 package database
 
 import (
+	"fmt"
+	"os"
+
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
+	"github.com/joho/godotenv"
 )
 
 var Db *sqlx.DB
 
 func Connect() {
 	var err error
-	Db, err = sqlx.Open("mysql", "root:Prathamesh@1@tcp(localhost:3306)/go_todo?charset=utf8&parseTime=True&loc=Local")
+	if err := godotenv.Load(); err != nil {
+		fmt.Println("Error while loading env")
+		panic(err)
+	}
+	// godotenv.Load()
+	Db, err = sqlx.Open("mysql", os.Getenv("SQL_PATH"))
 	if err != nil {
 		panic(err)
 	}
