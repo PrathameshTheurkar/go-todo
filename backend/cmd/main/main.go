@@ -22,6 +22,6 @@ func main() {
 
 	routes.AllRoutes(router)
 
-	fmt.Println("Server is running on port: 4000")
+	fmt.Println("Server is running on port " + os.Getenv("PORT"))
 	log.Fatal(http.ListenAndServe(os.Getenv("PORT"), router))
 }
